@@ -5,7 +5,7 @@ output: html_document
 date: "2025-04-20"
 ---
 
-```{r setup, include=FALSE}
+```setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(nnet)
