@@ -2,7 +2,7 @@
 title: "lecture 7"
 author: "Anuhya Balineni"
 output: html_document
-date: "2025-02-27"
+date: "2025-04-20"
 ---
 
 ```{r setup, include=FALSE}
@@ -182,11 +182,88 @@ df = PimaIndiansDiabetes
 ```
 
 ### Data Exploration and Summary Figures
+summary(df)
+str(df)
+table(df$diabetes)
+Also,Visualization like:
+library(ggplot2)
+
+ggplot(df, aes(x = glucose, fill = diabetes)) +
+  geom_histogram(bins = 30, alpha = 0.6, position = 'identity') +
+  labs(title = "Glucose Distribution by Diabetes Status", x = "Glucose", y = "Count")
 
 ### Fit a Simple Logistic Regression Model (Train & Test Split)
+set.seed(123)
+train_index <- sample(1:nrow(df), 0.7 * nrow(df))
+train <- df[train_index, ]
+test <- df[-train_index, ]
+
+simple_model <- glm(diabetes ~ glucose, data = train, family = binomial)
+summary(simple_model)
 
 \< Fit a logistic regression using glucose as a predictors of diabetes \>
 
 ### Interpret Coefficients & Apply the Model for Prediction on the test Data
+test$predicted_prob <- predict(simple_model, newdata = test, type = "response")
+test$predicted_class <- ifelse(test$predicted_prob > 0.5, "pos", "neg")
+table(Predicted = test$predicted_class, Actual = test$diabetes)
 
 ## Multiple Logistic Regression
+multi_model <- glm(diabetes ~ glucose + age + bmi + pregnant, data = train, family = binomial)
+summary(multi_model)
+
+test$multi_predicted_prob <- predict(multi_model, newdata = test, type = "response")
+test$multi_predicted_class <- ifelse(test$multi_predicted_prob > 0.5, "pos", "neg")
+table(Predicted = test$multi_predicted_class, Actual = test$diabetes)
+Missing Accuracy Calculation for Both Models
+
+You already did a confusion matrix for both the simple and multiple logistic models. Just add the accuracy after each one, like this:
+
+After the simple logistic model:
+
+conf_matrix_simple <- table(Predicted = test$predicted_class, Actual = test$diabetes)
+accuracy_simple <- sum(diag(conf_matrix_simple)) / sum(conf_matrix_simple)
+accuracy_simple
+
+After the multiple logistic model:
+
+conf_matrix_multi <- table(Predicted = test$multi_predicted_class, Actual = test$diabetes)
+accuracy_multi <- sum(diag(conf_matrix_multi)) / sum(conf_matrix_multi)
+accuracy_multi
+Model Comparison and Discussion
+1. Simple Logistic Regression
+
+Model: Uses only glucose to predict diabetes.
+
+Interpretation: Glucose is a significant predictor; as glucose increases, the probability of having diabetes increases.
+
+Performance: Decent baseline performance, but limited by using only one predictor.
+
+Pros: Easy to interpret, fast to train.
+
+Cons: May miss important interactions or effects from other variables.
+
+
+2. Multiple Logistic Regression
+
+Model: Includes glucose, age, BMI, and number of pregnancies.
+
+Interpretation: More comprehensive; allows for better modeling of the underlying relationships.
+
+Performance: Typically better than simple logistic regression due to inclusion of more relevant predictors.
+
+Pros: Balanced between interpretability and accuracy.
+
+Cons: Slightly more complex, may still be limited if interactions or nonlinearities are present.
+
+
+3. K-Nearest Neighbors (KNN)
+
+Model: Classifies individuals based on the most similar cases (neighbors).
+
+Performance: Can perform well with enough data and good normalization.
+
+Pros: No assumptions about the data distribution, flexible.
+
+Cons: Sensitive to choice of k and data scaling, hard to interpret, slower on large datasets. 
+
