@@ -1,0 +1,170 @@
+---
+title: "Diabetes Classification Lab A3"
+author: "Anuhya Balineni"
+date: "2025-05-05"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mlbench)
+library(caret)
+library(class)
+library(dplyr)
+```
+
+To begin the analysis, essential R packages are loaded in a hidden setup chunk. These include:\
+- mlbench for accessing the dataset,\
+- caret for model training and evaluation utilities,\
+- class for implementing the K-Nearest Neighbors algorithm, and\
+- dplyr for data manipulation.\
+The echo = TRUE option ensures that code is displayed in the final report, enhancing reproducibility and transparency of the workflow.
+
+### Background
+
+Diabetes is a widespread chronic condition that impacts millions globally. Predictive modeling offers a valuable approach for early detection, enabling timely intervention and improved disease management. This markdown focuses on building logistic regression models to predict the likelihood of diabetes based on individual health attributes.
+
+The analysis is conducted using the Pima Indians Diabetes Dataset, a well-established resource in health informatics, sourced from the UCI Machine Learning Repository and available through the mlbench package in R.
+
+## Simple Logistic Regression
+
+```{r}
+# load the dataset
+data("PimaIndiansDiabetes")
+df = PimaIndiansDiabetes
+```
+
+The Pima Indians Diabetes dataset is loaded from the mlbench package and stored in the variable df.
+
+#### Data Exploration and Summary Figures
+
+```{r}
+# Check and handle missing values
+colSums(is.na(df))
+df <- na.omit(df)
+
+# View structure and summary
+str(df)
+summary(df)
+```
+
+The dataset consists of 768 observations and 9 variables, glucose, mass (BMI), age, and the binary outcome variable diabetes. The structures says that that all predictor variables are numeric, while diabetes is a factor with two levels: "neg" and "pos".
+
+The results indicate that many features have zero values, especially glucose, insulin, triceps, and mass, which are biologically impossible suggesting missing or unrecorded data. For instance, the minimum value of glucose is 0, which is not feasible for a living individual. There is a moderate class imbalance that should be taken into account during evaluation, since the class distribution indicates 268 patients with diabetes and 500 non-diabetic cases.
+
+#### Fit a Simple Logistic Regression Model (Train & Test Split)
+
+The below fits a simple logistic regression model using glucose to predict diabetes. The data is split into training (70%) and testing (30%) sets. The model is trained on the training set using the glm() function with a binomial family.
+
+```{r}
+set.seed(123)
+split_index <- createDataPartition(df$diabetes, p = 0.7, list = FALSE)
+train_data <- df[split_index, ]
+test_data <- df[-split_index, ]
+
+# Fit model using glucose
+model_simple <- glm(diabetes ~ glucose, data = train_data, family = "binomial")
+summary(model_simple)
+```
+
+The fit result summary shows that glucose is a very important and significant predictor of diabetes. The positive value (0.035965) means that as glucose levels go up, the chances of having diabetes also increase. The p-value is extremely small, which confirms that this result is not due to chance.
+
+The model’s deviance dropped from 696.28 to 580.34 after including glucose, meaning the model fits better than one with no predictors. The AIC value (584.34) tells us how well the model fits and can be used to compare with other models.
+
+#### Interpret Coefficients & Apply the Model for Prediction on Test Data
+
+```{r}
+pred_probs <- predict(model_simple, newdata = test_data, type = "response")
+pred_class <- factor(ifelse(pred_probs > 0.5, "pos", "neg"), levels = c("neg", "pos"))
+confusionMatrix(pred_class, test_data$diabetes)
+```
+
+After training the model using glucose as the predictor, to make predictions on the test data, the predicted probabilities are converted into class labels using a 0.5 threshold. The resulting predictions are then compared to the actual values using a confusion matrix. The model achieved an accuracy of approximately 73.9%, suggesting that it classified nearly three-quarters of the test cases. The p-value was below 0.01, meaning the model performs significantly better than random guessing.
+
+The model had a high sensitivity of 86% for identifying non-diabetic individuals, but struggled to identify diabetics. Its positive predictive value was 76.8%, and negative predictive value was 66.1%, indicating moderate confidence. The Kappa statistic of 0.39 suggests fair agreement between predicted and actual values. The model is statistically significant but better at ruling out diabetes than confirming it.
+
+## Multiple Logistic Regression
+
+#### Fit a Multiple Logistic Regression Model (Train & Test Split)
+
+In this step, we construct a multiple logistic regression model with four predictor variables: glucose, age, body mass index (BMI), and number of pregnancies. This adds on the previous basic model by including more health-related characteristics that impact diabetes outcomes.
+
+The model is trained on the training dataset utilizing the glm() function and a binomial family, which is suitable for binary classification tasks. The objective is to see how these combined factors influence the chance of getting diabetes and to enhance overall model performance.
+
+```{r}
+model_multi <- glm(diabetes ~ glucose + age + mass + pregnant, data = train_data, family = "binomial")
+summary(model_multi)
+```
+
+The model's summary reveals that glucose, mass, and age are statistically significant, with extremely low p-values indicating a strong relationship with diabetes. Specifically, the glucose and mass variables have the greatest effect, as their large z-values and low standard errors. The variable pregnant has a borderline significance level (p = 0.0551), indicating that it may have a slight influence.
+
+The model's residual deviation has fallen from 580.34 (in the basic model) to 531.64, and the AIC has also lowered to 541.64, suggesting a better model fit. These findings demonstrate that adding numerous factors leads to a more accurate and informative model than using glucose alone.
+
+#### Interpret Coefficients & Apply the Model for Prediction on Test Data
+
+```{r}
+multi_probs <- predict(model_multi, newdata = test_data, type = "response")
+multi_pred <- factor(ifelse(multi_probs > 0.5, "pos", "neg"), levels = c("neg", "pos"))
+confusionMatrix(multi_pred, test_data$diabetes)
+```
+
+Using the predict() function, predictions were generated on the test dataset following the multiple logistic regression model's fitting. The predicted probabilities were transformed into binary class labels at a 0.5 threshold, and the performance was assessed using a confusion matrix. The model attained 77.4% accuracy, which was greater than the standard logistic regression model's 73.9%. The p-value of 4.2e-05 revealed that the improvement in performance was statistically significant.
+
+Sensitivity was 87.3%, indicating that the majority of non-diabetic patients were accurately recognized. Specificity increased to 58.8%, indicating that the model became more effective at recognizing diabetes people. The Kappa value climbed to 0.4805, indicating moderate agreement between projected and actual values. Both the positive predictive value (79.9%) and negative predictive value (71.2%) were higher than in the previous model, suggesting more reliable predictions overall. With a balanced accuracy of 73%, the multiple logistic regression model provided a more effective and well-rounded classification approach for detecting diabetes.
+
+## K-Nearest Neighbors Classification
+
+K-Nearest Neighbors (KNN) is a simple and non-parametric classification technique that predicts the result of a given observation using the majority class of its 'k' closest neighbors in the feature space. The technique is adaptable and makes no assumptions about the underlying data distribution, making it suitable for a wide range of classification problems.
+
+Here, the knn() function from the class package is used with data pretreatment and assessment tools from the caret library. The number of neighbors (k) is determined manually, and the characteristics are standardized to guarantee that distance computations are not influenced by varying scales.
+
+#### Prepare the Data
+
+```{r}
+normalize <- function(x) (x - min(x)) / (max(x) - min(x))
+
+df_norm <- df %>%
+  mutate(across(c(glucose, age, mass, pregnant), normalize))
+
+train_norm <- df_norm[split_index, ]
+test_norm <- df_norm[-split_index, ]
+
+train_knn <- train_norm %>% select(glucose, age, mass, pregnant)
+test_knn <- test_norm %>% select(glucose, age, mass, pregnant)
+
+train_labels <- train_norm$diabetes
+test_labels <- test_norm$diabetes
+```
+
+Min-max scaling is used to standardize the chosen numerical features, which include glucose, age, mass (BMI), and number of pregnancies, such that all values fall within the same range (0 to 1) before to using the K-Nearest Neighbors (KNN) method.
+
+The process is necessary because KNN is based on distance metrics, and features with greater scales may dominate the distance computation. The normalized dataset is then divided into training and test sets with the same indices as done previously. The feature columns are extracted into two independent data frames (train_knn and test_knn), and the diabetic labels are kept in train_labels and test_labels.
+
+#### Fit a KNN Classifier Model (Train & Test Split)
+
+```{r}
+set.seed(123)
+knn_pred <- knn(train = train_knn, test = test_knn, cl = train_labels, k = 5)
+```
+
+Now, the KNN classifier is applied using the knn() function with k = 5, each prediction is based on the five nearest training data points. The model uses the normalized training and test feature sets to calculate distances and assign class labels based on majority voting. The output knn_pred contains the predicted diabetes outcomes for the test set, categorized as either "neg" or "pos".
+
+#### Interpret & Apply to Test Data
+
+```{r}
+confusionMatrix(knn_pred, test_labels)
+```
+
+To evaluate the effectiveness of the KNN model, we compare the predicted outcomes against the actual test labels using a confusion matrix. This helps to know how well the model performs across various classification metrics such as accuracy, sensitivity, and specificity.
+
+The confusion matrix reveals an overall accuracy of 76.1%, indicating the model correctly classifies about three-fourths of the test instances. The sensitivity is 83.3%, which means the model is strong at detecting non-diabetic cases. The specificity of 62.5% reflects a fair ability to identify diabetic individuals. The Kappa value of 0.4651 suggests moderate agreement between predictions and actual labels. Additionally, the balanced accuracy stands at 72.9%, showing a well-balanced performance across both classes. These results suggest that KNN is a reliable model for diabetes prediction when features are properly normalized.
+
+## Model Comparison and Discussion
+
+All three models—simple logistic regression, multiple logistic regression, and KNN—showed decent performance in classifying diabetes cases, but with varying strengths.
+
+The simple logistic regression model, using only glucose, provided a quick and interpretable baseline but lacked predictive depth with lower specificity and balanced accuracy. The multiple logistic regression model significantly improved performance by including additional predictors like age, BMI, and pregnancy count, leading to higher accuracy, better balance between sensitivity and specificity, and a stronger overall fit. The KNN model also delivered solid results, with comparable accuracy and a good sensitivity score. However, its performance depended on feature scaling and the choice of k, and it offered less interpretability compared to logistic regression.
+
+Overall, the multiple logistic regression model stands out as the most balanced and interpretable, making it the preferred choice for this type of healthcare classification task.
